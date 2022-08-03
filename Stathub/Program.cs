@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Caching.Memory;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -38,8 +39,13 @@ namespace Stathub
 
     internal class Program
     {
+        public static Dictionary<string, int> CachedCityDistance = new Dictionary<string, int>();
+        private static IMemoryCache _memoryCache;
+
         static void Main(string[] args)
         {
+            _memoryCache = new MemoryCache(new MemoryCacheOptions());
+
             var events = new List<Event>
             {
                 new Event{ Name = "Phantom of the Opera", City = "New York",Date = new DateTime(2022,8,1)},
@@ -110,15 +116,7 @@ namespace Stathub
         }
         static int GetDistance(string fromCity, string toCity)
         {
-            try
-            {
-                return AlphebiticalDistance(fromCity, toCity);
-            }
-            catch (Exception)
-            {
-                Console.WriteLine($"An Exception has occured while calling GetDistance method params(fromCity:{fromCity},toCity:{toCity}");
-                return -1;
-            }
+            return AlphebiticalDistance(fromCity, toCity);
         }
         private static int AlphebiticalDistance(string s, string t)
         {
@@ -138,6 +136,31 @@ namespace Stathub
         }
         #endregion
 
+        static int GetDistanceWithCache(string from, string to)
+        {
+            var cacheKey = $"{from}-{to}";
+            bool isKeyFound = _memoryCache.TryGetValue(cacheKey, out int distance);
+            if (!isKeyFound)
+            {
+                var reverseCacheKey = $"{to}-{from}";
+                bool isReverseKeyFound = _memoryCache.TryGetValue(reverseCacheKey, out distance);
+                if (isReverseKeyFound)
+                    return distance;
+                try
+                {
+                    distance = GetDistance(from, to);
+                    _memoryCache.Set(cacheKey, distance);
+                    return distance;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An Exception has occured while calling GetDistance method params(fromCity:{from},toCity:{to}) with message:{ex.Message}");
+                    return -1;
+                }
+            }
+            return distance;
+        }
+
         /// <summary>
         /// Send Events to customers based on filter enum with limit events option
         /// </summary>
@@ -155,7 +178,7 @@ namespace Stathub
                     eventsToSend = events.Where(e => e.City == customer.City).Select(e => new CustomerEventNotification { Event = e });
                     break;
                 case FilterBy.SmaeCityAndClosest:
-                    eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, Distance = GetDistance(customer.City, e.City) }).Where(x => x.Distance >= 0).OrderBy(x => x.Distance);
+                    eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, Distance = GetDistanceWithCache(customer.City, e.City) }).Where(x => x.Distance >= 0).OrderBy(x => x.Distance);
                     break;
                 case FilterBy.PriceAsc:
                     eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, Price = GetPrice(e) }).OrderBy(x => x.Price);
@@ -201,7 +224,7 @@ namespace Stathub
             foreach (var customerEvent in events)
             {
                 if (!eventDistanceToCustomer.ContainsKey(customerEvent.City))
-                    eventDistanceToCustomer.Add(customerEvent.City, events.Where(x => x.City == customerEvent.City).Select(x => new CustomerEventNotification { Event = x, Distance = GetDistance(customer.City, x.City) }).ToList());
+                    eventDistanceToCustomer.Add(customerEvent.City, events.Where(x => x.City == customerEvent.City).Select(x => new CustomerEventNotification { Event = x, Distance = GetDistanceWithCache(customer.City, x.City) }).ToList());
             }
             var eventsToSend = eventDistanceToCustomer.SelectMany(x => x.Value).Where(x => x.Distance >= 0).OrderBy(x => x.Distance).Take(5);
             foreach (var e in eventsToSend)
