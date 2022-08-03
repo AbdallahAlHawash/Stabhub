@@ -53,50 +53,32 @@ namespace Stathub
                 new Event{ Name = "LadyGaGa", City = "Washington",Date = new DateTime(2022,8,5)}
             };
 
-            var customer = new Customer { Name = "Mr. Fake", City = "New York", BirthDate = new DateTime(1981, 8, 1) };
-            TimeSpan timeTaken;
-            Console.WriteLine("Task 1");
-            var timer = new Stopwatch();
-            timer.Start();
-            SendEventThatOccuresWithinCustomrCity(customer, events);
-            timer.Stop();
-            timeTaken = timer.Elapsed;
-            Console.WriteLine("Time taken: " + timeTaken.ToString(@"m\:ss\.fff"));
-            timer.Restart();
-            Console.WriteLine("\n\r");
+            var customers = new List<Customer>{
+                new Customer { Name = "Mr. Fake", City = "New York", BirthDate = new DateTime(1981, 8, 1) },
+                new Customer{ Name = "Nathan", City = "New York",BirthDate = new DateTime(1981, 8, 5)},
+                new Customer{ Name = "Bob", City = "Boston",BirthDate = new DateTime(1981, 8, 4)},
+                new Customer{ Name = "Cindy", City = "Chicago",BirthDate = new DateTime(1981, 8, 3)},
+                new Customer{ Name = "Lisa", City = "Los Angeles",BirthDate = new DateTime(1981, 8, 2)},
+            };
 
-            Console.WriteLine("Task 2 3 4");
-            timer.Start();
-            SendFiveEventsToCustomerOrderedByDistanceToCustomer(customer, events);
-            timer.Stop();
-            timeTaken = timer.Elapsed;
-            Console.WriteLine("Time taken: " + timeTaken.ToString(@"m\:ss\.fff"));
-            timer.Restart();
-            Console.WriteLine("\n\r");
-            timer.Start();
-            SendEventsToCustomerV2(customer, events, FilterBy.SmaeCityAndClosest, 5);
-            timer.Stop();
-            timeTaken = timer.Elapsed;
-            Console.WriteLine("Time taken: " + timeTaken.ToString(@"m\:ss\.fff"));
-            timer.Restart();
-            Console.WriteLine("\n\r ClosestToBirthDay \n\r");
-            timer.Start();
-            SendEventsToCustomerV2(customer, events, FilterBy.ClosestToBirthDay);
-            timer.Stop();
-            timeTaken = timer.Elapsed;
-            Console.WriteLine("Time taken: " + timeTaken.ToString(@"m\:ss\.fff"));
-            timer.Restart();
-            Console.WriteLine("\n\r");
+            foreach (var customer in customers)
+            {
+                Console.WriteLine($"================ {customer.Name} ================");
+                Console.WriteLine("Task 1");
+                SendEventThatOccuresWithinCustomrCity(customer, events);
+                Console.WriteLine("\n\r");
 
+                Console.WriteLine("Task 2 3 4 \n\r");
+                SendFiveEventsToCustomerOrderedByDistanceToCustomer(customer, events);
+                Console.WriteLine("\n\r");
+                SendEventsToCustomerV2(customer, events, FilterBy.SmaeCityAndClosest, 5);
+                Console.WriteLine("\n\r ClosestToBirthDay \n\r");
+                SendEventsToCustomerV2(customer, events, FilterBy.ClosestToBirthDay);
 
-            Console.WriteLine("Task 5");
-            timer.Start();
-            SendEventsToCustomerV2(customer, events, FilterBy.PriceAsc);
-            timer.Stop();
-            timeTaken = timer.Elapsed;
-            Console.WriteLine("Time taken: " + timeTaken.ToString(@"m\:ss\.fff"));
-            timer.Restart();
-            Console.WriteLine("\n\r");
+                Console.WriteLine("\n\r Task 5 \n\r");
+                SendEventsToCustomerV2(customer, events, FilterBy.PriceAsc);
+                Console.WriteLine("\n\r");
+            }
             Console.ReadLine();
         }
         // You do not need to know how these methods work
@@ -156,6 +138,13 @@ namespace Stathub
         }
         #endregion
 
+        /// <summary>
+        /// Send Events to customers based on filter enum with limit events option
+        /// </summary>
+        /// <param name="customer">Customer to send notifications to</param>
+        /// <param name="events">List of events which we want to process</param>
+        /// <param name="filterBy">The filter which we want to filter the events based on</param>
+        /// <param name="limitEventsCount">Limit number of events to send to the customer</param>
         private static void SendEventsToCustomerV2(Customer customer, List<Event> events, FilterBy filterBy, int limitEventsCount = 0)
         {
             IEnumerable<CustomerEventNotification> eventsToSend = null;
@@ -212,21 +201,13 @@ namespace Stathub
             foreach (var customerEvent in events)
             {
                 if (!eventDistanceToCustomer.ContainsKey(customerEvent.City))
-                    eventDistanceToCustomer.Add(customerEvent.City,events.Where(x => x.City == customerEvent.City).Select(x => new CustomerEventNotification { Event = x,Distance = GetDistance(customer.City, x.City) }).ToList());
+                    eventDistanceToCustomer.Add(customerEvent.City, events.Where(x => x.City == customerEvent.City).Select(x => new CustomerEventNotification { Event = x, Distance = GetDistance(customer.City, x.City) }).ToList());
             }
-            var eventsToSend = eventDistanceToCustomer.SelectMany(x => x.Value).OrderBy(x => x.Distance).Take(5);
+            var eventsToSend = eventDistanceToCustomer.SelectMany(x => x.Value).Where(x => x.Distance >= 0).OrderBy(x => x.Distance).Take(5);
             foreach (var e in eventsToSend)
             {
-                AddToEmail(customer,e.Event);
+                AddToEmail(customer, e.Event);
             }
         }
     }
 }
-/*
-var customers = new List<Customer>{
-new Customer{ Name = "Nathan", City = "New York"},
-new Customer{ Name = "Bob", City = "Boston"},
-new Customer{ Name = "Cindy", City = "Chicago"},
-new Customer{ Name = "Lisa", City = "Los Angeles"}
-};
-*/
