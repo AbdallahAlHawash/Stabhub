@@ -1,9 +1,6 @@
-﻿using Microsoft.Extensions.Caching.Memory;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace Stathub
 {
@@ -39,13 +36,10 @@ namespace Stathub
 
     internal class Program
     {
-        public static Dictionary<string, int> CachedCityDistance = new Dictionary<string, int>();
-        private static IMemoryCache _memoryCache;
+        static readonly Dictionary<string, int> CachedCityDistance = new Dictionary<string, int>();
 
         static void Main(string[] args)
         {
-            _memoryCache = new MemoryCache(new MemoryCacheOptions());
-
             var events = new List<Event>
             {
                 new Event{ Name = "Phantom of the Opera", City = "New York",Date = new DateTime(2022,8,1)},
@@ -87,6 +81,7 @@ namespace Stathub
             }
             Console.ReadLine();
         }
+
         // You do not need to know how these methods work
         #region Codebase
         static void AddToEmail(Customer c, Event e, int? price = null)
@@ -136,20 +131,20 @@ namespace Stathub
         }
         #endregion
 
-        static int GetDistanceWithCache(string from, string to)
+        static int GetDistanceWithDictionaryCache(string from, string to)
         {
             var cacheKey = $"{from}-{to}";
-            bool isKeyFound = _memoryCache.TryGetValue(cacheKey, out int distance);
+            bool isKeyFound = CachedCityDistance.TryGetValue(cacheKey, out int distance);
             if (!isKeyFound)
             {
                 var reverseCacheKey = $"{to}-{from}";
-                bool isReverseKeyFound = _memoryCache.TryGetValue(reverseCacheKey, out distance);
+                bool isReverseKeyFound = CachedCityDistance.TryGetValue(reverseCacheKey, out distance);
                 if (isReverseKeyFound)
                     return distance;
                 try
                 {
                     distance = GetDistance(from, to);
-                    _memoryCache.Set(cacheKey, distance);
+                    CachedCityDistance.Add(cacheKey, distance);
                     return distance;
                 }
                 catch (Exception ex)
@@ -178,7 +173,7 @@ namespace Stathub
                     eventsToSend = events.Where(e => e.City == customer.City).Select(e => new CustomerEventNotification { Event = e });
                     break;
                 case FilterBy.SmaeCityAndClosest:
-                    eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, Distance = GetDistanceWithCache(customer.City, e.City) }).Where(x => x.Distance >= 0).OrderBy(x => x.Distance);
+                    eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, Distance = GetDistanceWithDictionaryCache(customer.City, e.City) }).Where(x => x.Distance >= 0).OrderBy(x => x.Distance);
                     break;
                 case FilterBy.PriceAsc:
                     eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, Price = GetPrice(e) }).OrderBy(x => x.Price);
@@ -224,7 +219,7 @@ namespace Stathub
             foreach (var customerEvent in events)
             {
                 if (!eventDistanceToCustomer.ContainsKey(customerEvent.City))
-                    eventDistanceToCustomer.Add(customerEvent.City, events.Where(x => x.City == customerEvent.City).Select(x => new CustomerEventNotification { Event = x, Distance = GetDistanceWithCache(customer.City, x.City) }).ToList());
+                    eventDistanceToCustomer.Add(customerEvent.City, events.Where(x => x.City == customerEvent.City).Select(x => new CustomerEventNotification { Event = x, Distance = GetDistanceWithDictionaryCache(customer.City, x.City) }).ToList());
             }
             var eventsToSend = eventDistanceToCustomer.SelectMany(x => x.Value).Where(x => x.Distance >= 0).OrderBy(x => x.Distance).Take(5);
             foreach (var e in eventsToSend)
