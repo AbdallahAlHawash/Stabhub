@@ -165,7 +165,7 @@ namespace Stathub
         /// <param name="limitEventsCount">Limit number of events to send to the customer</param>
         private static void SendEventsToCustomerV2(Customer customer, List<Event> events, FilterBy filterBy, int limitEventsCount = 0)
         {
-            IEnumerable<CustomerEventNotification> eventsToSend = null;
+            IEnumerable<CustomerEventNotification> eventsToSend = new List<CustomerEventNotification>();
 
             switch (filterBy)
             {
@@ -176,12 +176,10 @@ namespace Stathub
                     eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, Distance = GetDistanceWithDictionaryCache(customer.City, e.City) }).Where(x => x.Distance >= 0).OrderBy(x => x.Distance);
                     break;
                 case FilterBy.PriceAsc:
-                    eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, Price = GetPrice(e) }).OrderBy(x => x.Price);
+                    eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, Price = GetPrice(e), Distance = GetDistanceWithDictionaryCache(customer.City, e.City) }).OrderBy(x => x.Distance).ThenBy(x => x.Price);
                     break;
                 case FilterBy.ClosestToBirthDay:
                     eventsToSend = events.Select(e => new CustomerEventNotification { Event = e, BirthDayDiffrance = GetMonthDayDiffrance(customer.BirthDate, e.Date) }).Where(x => x.BirthDayDiffrance >= 0).OrderBy(x => x.BirthDayDiffrance);
-                    break;
-                default:
                     break;
             }
 
@@ -190,7 +188,7 @@ namespace Stathub
 
             foreach (var customerEvent in eventsToSend)
             {
-                AddToEmail(customer, customerEvent.Event);
+                AddToEmail(customer, customerEvent.Event, customerEvent.Price);
             }
         }
 
